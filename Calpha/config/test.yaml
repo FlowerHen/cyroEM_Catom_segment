@@ -1,0 +1,31 @@
+data:
+  root_dir: /root/autodl-tmp/CryFold/Datasets
+  # Directory for storing cached preprocessed cubes
+  cache_dir: /root/project/Calpha/data_cache
+  split_ratio:
+    train: 0.8
+    val: 0.2
+  num_workers: 16
+  crop_size: 64
+  overlap: 0.0
+  d0: 3.0
+  voxel_size: 1.6638
+  batch_size: 16
+  max_samples: 1000
+  min_ca_atoms: 5
+
+training:
+  lr: 3e-4
+  weight_decay: 1e-5
+  epochs: 100
+  soft_weight: 0.5
+  checkpoint_dir: /root/autodl-tmp/CryFold/model_checkpoints_ma_dropout
+  device: cuda
+  grad_clip: 1.0
+
+augmentation:
+  # Number of rotation samples for data augmentation; if set to 0 no rotation is applied.
+  rotation_samples: 2
+  noise_prob: 0.5
+  noise_std: 0.05
+  noise_multiplier: 1.0
