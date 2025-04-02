@@ -1,19 +1,19 @@
 data:
   root_dir: /root/autodl-tmp/CryFold/Datasets
   # Directory for storing cached preprocessed cubes
-  cache_dir: /root/project/Calpha/data_cache_no_neg
+  cache_dir: /root/project/Calpha/data_cache_with_neg
   split_ratio:
     train: 0.8
     val: 0.2
   num_workers: 16
   crop_size: 64
-  overlap: 0.0
+  overlap: 0.3
   d0: 3.0
   voxel_size: 1.6638
   batch_size: 16
   max_samples: 3000
   min_ca_atoms: 5
-  max_empty_ratio: 1
+  max_empty_ratio: 0.5
   keep_empty_block: True
 
 training:
@@ -21,15 +21,20 @@ training:
   device: "cuda" # Use GPU if available, else 'cpu'
   lr: 0.001
   weight_decay: 0.01
-  checkpoint_dir: "/root/autodl-tmp/CryFold/checkpoints_smp_model2"
-  epochs: 80
+  checkpoint_dir: /root/autodl-tmp/CryFold/checkpoints_loss_weight_bymodel
+  epochs: 50
   grad_clip: 1.0
   validation_interval: 5
   checkpoint_interval: 5
-  hard_weight: 1.0 # Weight for CE loss with hard labels
+  hard_weight: 1 # Weight for CE loss with hard labels
   soft_weight: 0.5 # Weight for MSE loss with soft labels
-  pos_weight: auto # Positive weight for BCE to handle imbalance
+  hard_dist_weight: 1 # Weight for hard distance loss
+  dice_weight: 0 # Weight for Dice loss
+  focal_weight: 0 # Weight for Focal loss
+  pos_weight: 50 # Positive weight for BCE to handle imbalance
+  prediction_threshold: 0.5 # Lower threshold for prediction to improve recall
   enhanced_logging: true # Enable console logging
+  enable_validation_visualization: true
   csv_logging: true # Log metrics to CSV
   final_div_factor: 1000 # Final LR divisor for OneCycleLR
   auto_resume: true # Resume from latest checkpoint
@@ -41,19 +46,19 @@ training:
 
 augmentation:
   rotation:
-    rotation_samples: 2
+    rotation_samples: 1
   resolution:
     use: true
-    prob: 0.3
+    prob: 0
     sigma_range: [0.8, 1.0]
   noise:
-    prob: 0.5
+    prob: 0
     ratio_range: [0.2, 0.5]
     std: 0.05
-  intensity_inversion:
+  intensity_inverpsion:
     prob: 0
   gamma_correction:
-    prob: 0.2
+    prob: 0
     gamma_range: [0.9, 1.1]
 
 inference:

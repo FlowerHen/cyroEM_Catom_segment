@@ -2,7 +2,7 @@ import os
 import numpy as np
 import torch
 from torch.utils.data import Dataset, random_split, DataLoader
-import logging  # Added for logging errors in __getitem__
+import logging
 from .preprocess import CryoEMPreprocessor, VolumeAugmentor
 
 def get_sliding_window_starts(volume_shape, crop_size, overlap):
@@ -109,20 +109,36 @@ class CryoEMDataset(Dataset):
 
     def __getitem__(self, idx):
         try:
-            # Use crop_windows mapping to retrieve the corresponding sample index and crop start
+            # Retrieve the appropriate sample and crop window.
             sample_idx, start = self.crop_windows[idx]
             sample = self.samples[sample_idx]
             grid_data = self.preprocessor.load_npz(sample['npz'])
             ca_coords = self.preprocessor.parse_cif(sample['cif'])
             hard_label, soft_label = self.preprocessor.create_labels(grid_data, ca_coords)
+            
             x, y, z = start
             cx, cy, cz = self.crop_size
             volume = grid_data['grid'][x:x+cx, y:y+cy, z:z+cz]
             cropped_hard = hard_label[x:x+cx, y:y+cy, z:z+cz]
             cropped_soft = soft_label[x:x+cx, y:y+cy, z:z+cz]
-            # If in training mode, apply data augmentation
+    
+            # Sample checking: compute and log average grid values in positive and negative regions.
+            pos_mask = (cropped_hard > 0)
+            neg_mask = (cropped_hard == 0)
+            if np.sum(pos_mask) > 0:
+                positive_avg = volume[pos_mask].mean()
+            else:
+                positive_avg = float('nan')
+            if np.sum(neg_mask) > 0:
+                negative_avg = volume[neg_mask].mean()
+            else:
+                negative_avg = float('nan')
+            logging.info(f"Sample {idx}: positive grid average = {positive_avg:.4f}, negative grid average = {negative_avg:.4f}")
+    
+            # If in training mode, apply the volume augmentation.
             if self.mode == 'train' and self.augmentor:
                 volume, (cropped_hard, cropped_soft) = self.augmentor(volume, (cropped_hard, cropped_soft))
+                
             return (
                 torch.tensor(volume.copy(), dtype=torch.float32).unsqueeze(0),
                 torch.tensor(cropped_hard, dtype=torch.float32).unsqueeze(0),
@@ -131,9 +147,9 @@ class CryoEMDataset(Dataset):
                 torch.tensor(grid_data['global_origin'], dtype=torch.float32)
             )
         except Exception as e:
-            # Log the error with index information and re-raise
             logging.error(f"Error in __getitem__ for index {idx}: {e}")
             raise e
+
 
 def get_data_loaders(config):
     """Create train and validation data loaders. Use cached dataset if specified."""

@@ -2,11 +2,11 @@ import torch
 import torch.nn as nn
 from .layers import (
     ConvBlock, Bottleneck, Res2NetBlock,
-    DownsampleLayer, MainLayer, UpsampleAdd, UpsampleCat, MultiScaleConv, AttentionGate
+    DownsampleLayer, MainLayer, UpsampleAdd, UpsampleCat, MultiScaleConv, AttentionGate, SimamModule
 )
 
 class SegmentationModel(nn.Module):
-    """Algorithm 1: ModelAngelo model"""
+    """Algorithm 1: ModelAngelo model with dropout"""
     def __init__(self, use_sa=False, dropout_rate=0.2):
         super().__init__()
         self.dropout = nn.Dropout3d(dropout_rate)
@@ -23,19 +23,19 @@ class SegmentationModel(nn.Module):
         # Intermediate processing layers
         self.tl4 = ConvBlock(512, 256)  # 512 -> 256
         self.ll4 = ConvBlock(256, 256)  # Keep 256
-        self.c4 = MainLayer(256, num_layers=2, expansion=4, block_type='bottleneck', use_sa=use_sa)
+        self.c4 = MainLayer(256, num_layers=5, expansion=4, block_type='bottleneck', use_sa=use_sa)
         
         self.tl3 = ConvBlock(256, 128)  # 256 -> 128
         self.ll3 = ConvBlock(128, 128)  # Keep 128
-        self.c3 = MainLayer(128, num_layers=10, expansion=4, block_type='bottleneck', use_sa=use_sa)
+        self.c3 = MainLayer(128, num_layers=20, expansion=4, block_type='bottleneck', use_sa=use_sa)
         
         self.tl2 = ConvBlock(128, 64)   # 128 -> 64
         self.ll2 = ConvBlock(64, 64)    # Keep 64
-        self.c2 = MainLayer(64, num_layers=20, expansion=4, block_type='bottleneck')
+        self.c2 = MainLayer(64, num_layers=50, expansion=4, block_type='bottleneck')
         
         self.tl1 = ConvBlock(64, 64)    # Keep 64
         self.ll1 = ConvBlock(64, 64)    # Keep 64
-        self.c1 = MainLayer(64, num_layers=5, expansion=4, block_type='bottleneck')
+        self.c1 = MainLayer(64, num_layers=10, expansion=4, block_type='bottleneck')
         
         # Upsampling and feature fusion
         self.upsample_add = UpsampleAdd()
@@ -48,8 +48,11 @@ class SegmentationModel(nn.Module):
         # Downsampling
         ds0 = self.down_conv[0](V)
         ds1 = self.down_conv[1](ds0)
+        ds1 = self.dropout(ds1)  # Apply dropout after first downsampling
         ds2 = self.down_conv[2](ds1)
+        ds2 = self.dropout(ds2)  # Apply dropout after second downsampling
         ds3 = self.down_conv[3](ds2)
+        ds3 = self.dropout(ds3)  # Apply dropout after third downsampling
         ds4 = self.down_conv[4](ds3)
         
         # Apply dropout at bottleneck (highest-level features)
@@ -74,7 +77,7 @@ class SegmentationModel(nn.Module):
         return self.final_conv(c1)
 
 class SegmentationModelResnet(nn.Module):
-    """Algorithm 2: Res2Net-based U-Net variant by Cryfold V1.2"""
+    """Algorithm 2: Res2Net-based U-Net variant by Cryfold V1.2 with dropout"""
     def __init__(self, use_sa=False, dropout_rate=0.2):
         super().__init__()
         self.dropout = nn.Dropout3d(dropout_rate)
@@ -121,8 +124,11 @@ class SegmentationModelResnet(nn.Module):
         # Encoder
         ds0 = self.init_conv(x)
         ds1 = self.down_layers[0](ds0)
+        ds1 = self.dropout(ds1)
         ds2 = self.down_layers[1](ds1)
+        ds2 = self.dropout(ds2)
         ds3 = self.down_layers[2](ds2)
+        ds3 = self.dropout(ds3)
         ds4 = self.down_layers[3](ds3)
         
         # Apply dropout at bottleneck
@@ -157,7 +163,7 @@ class SegmentationModelResnet(nn.Module):
 
 
 class SegmentationModelAttn(SegmentationModelResnet):
-    """Algorithm 3: U-Net variant with attention mechanism by CryFold V1.3"""
+    """Algorithm 3: U-Net variant with attention mechanism by CryFold V1.3 with dropout"""
     def __init__(self, use_sa=True, dropout_rate=0.2):
         super().__init__(use_sa, dropout_rate)
         # Replace upsampling module with attention gates
@@ -192,6 +198,7 @@ class SegmentationModelAttn(SegmentationModelResnet):
         return self.up_convs[layer_idx](x)
 
 class SegmentationModelMini(nn.Module):
+    """Mini 2-layer UNet model with dropout"""
     def __init__(self, use_sa=False, dropout_rate=0.2):
         super().__init__()
         self.dropout = nn.Dropout3d(dropout_rate)
@@ -213,6 +220,7 @@ class SegmentationModelMini(nn.Module):
         x = self.norm(x)
         ds0 = self.conv0(x)
         ds1 = self.down1(ds0)
+        ds1 = self.dropout(ds1)  # Apply dropout after first downsampling
         ds2 = self.down2(ds1)
         
         # Apply dropout at bottleneck
@@ -226,6 +234,7 @@ class SegmentationModelMini(nn.Module):
         
         up1 = self.upsample_add(mid_proj, self.skip1(ds1))
         up1 = self.up_conv1(up1)
+        up1 = self.dropout(up1)  # Apply dropout in upsampling path
         
         up2 = self.upsample_add(up1, self.skip0(ds0))
         up2 = self.up_conv2(up2)
@@ -233,6 +242,7 @@ class SegmentationModelMini(nn.Module):
         return self.final_conv(up2)
 
 class SegmentationModelResMini(nn.Module):
+    """Mini 2-layer Res2Net UNet model with dropout"""
     def __init__(self, use_sa=False, dropout_rate=0.2):
         super().__init__()
         self.dropout = nn.Dropout3d(dropout_rate)
@@ -255,6 +265,7 @@ class SegmentationModelResMini(nn.Module):
         x = self.norm(x)
         ds0 = self.init_conv(x)
         ds1 = self.down_layers[0](ds0)
+        ds1 = self.dropout(ds1)  # Apply dropout after first downsampling
         ds2 = self.down_layers[1](ds1)
         
         # Apply dropout at bottleneck
@@ -280,7 +291,7 @@ class SegmentationModelResMini(nn.Module):
         return self.up_convs[layer_idx](x)
 
 class SegmentationAttnMini(SegmentationModelResMini):
-    """SegmentationModelResMini with attention mechanism"""
+    """Mini 2-layer Res2Net UNet model with attention and dropout"""
     def __init__(self, use_sa=False, dropout_rate=0.2):
         super().__init__(use_sa=use_sa, dropout_rate=dropout_rate)
         

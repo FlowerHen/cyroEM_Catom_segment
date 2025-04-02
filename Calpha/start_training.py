@@ -5,7 +5,7 @@ from Calpha.dataset.dataset import get_data_loaders
 from Calpha.training.trainer import CryoTrainer
 from Calpha.model.segmentation_model import SegmentationModel,SegmentationModelMini,SegmentationModelResnet,SegmentationModelAttn
 
-config_path = "/root/project/Calpha/Calpha/config/base.yaml"
+config_path = "/root/project/Calpha/Calpha/config/test.yaml"
 
 def load_config(config_path = ""):
     with open(config_path, 'r') as f:
