@@ -55,7 +55,7 @@ augmentation:
     prob: 0
     ratio_range: [0.2, 0.5]
     std: 0.05
-  intensity_inverpsion:
+  intensity_inversion:
     prob: 0
   gamma_correction:
     prob: 0
